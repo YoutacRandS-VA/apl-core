@@ -268,6 +268,7 @@ changes:
       - 'apps.harbor.persistence'
       - 'apps.ingress-azure'
       - 'apps.kube-descheduler'
+      - 'apps.cnpg.storage'
       - 'apps.loki.storage'
       - 'apps.tempo.storage'
       - 'apps.velero.cloud'
