@@ -74,6 +74,13 @@ configs:
     resource.customizations.ignoreDifferences.admissionregistration.k8s.io_MutatingWebhookConfiguration: |
       jqPathExpressions:
       - '.webhooks[]?.clientConfig.caBundle'
+
+
+    resource.customizations.ignoreDifferences.apps_StatefulSet: |
+      jqPathExpressions:
+       - "/spec/volumeClaimTemplates/0/kind"
+       - "/spec/volumeClaimTemplates/0/apiVersion"
+
     oidc.config: |
       name: Otomi
       issuer: {{ $v._derived.oidcBaseUrl }}
