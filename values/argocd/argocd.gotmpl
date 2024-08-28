@@ -71,6 +71,29 @@ configs:
     resource.customizations.knownTypeFields.cert-manager.io_Certificate: |
         - field: spec.duration
           type: meta/v1/Duration
+    resource.customizations: |
+      admissionregistration.k8s.io/ValidatingWebhookConfiguration:
+        ignoreDifferences: |
+          jsonPointers:
+          - "/webhooks/0/clientConfig/caBundle"
+          - "/webhooks/0/clientConfig/service/path"
+          - "/webhooks/0/rules"
+          - "/webhooks/0/namespaceSelector"
+      admissionregistration.k8s.io/MutatingWebhookConfiguration:
+        ignoreDifferences: |
+          jsonPointers:
+          - "/webhooks/0/clientConfig/caBundle"
+      apps/StatefulSet:
+        ignoreDifferences: |
+          jsonPointers:
+          - "/spec/volumeClaimTemplates/0/kind"
+          - "/spec/volumeClaimTemplates/0/apiVersion"
+      Service:
+        ignoreDifferences: |
+          jsonPointers:
+          - "/spec/ports/0/nodePort"
+          - "/spec/ports/1/nodePort"
+
     oidc.config: |
       name: Otomi
       issuer: {{ $v._derived.oidcBaseUrl }}
