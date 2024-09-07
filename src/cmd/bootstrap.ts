@@ -1,6 +1,6 @@
 import { copy, pathExists } from 'fs-extra'
 import { copyFile, mkdir, readFile, writeFile } from 'fs/promises'
-import yaml from 'js-yaml'
+// import yaml from 'js-yaml'
 import { cloneDeep, get, merge } from 'lodash'
 import { pki } from 'node-forge'
 import path from 'path'
@@ -84,52 +84,14 @@ export const bootstrapSops = async (
 
   if (provider === 'age') {
     d.log('env 1:', env)
-    const { VALUES_INPUT } = env
-    let { publicKey, privateKey } = settingsVals?.kms?.sops?.age ?? {}
-    const originalValues = (await deps.loadYaml(VALUES_INPUT)) as Record<string, any>
-    if (
-      originalValues?.kms?.sops?.provider === 'age' &&
-      (!originalValues?.kms?.sops?.age?.publicKey || !originalValues?.kms?.sops?.age?.privateKey)
-    ) {
-      const ageKeys = await generateAgeKey()
-      publicKey = ageKeys.publicKey
-      privateKey = ageKeys.privateKey
-      const updatedValues = { ...cloneDeep(originalValues), kms: { sops: { provider: 'age', age: ageKeys } } }
-      const yamlString = yaml.dump(updatedValues)
-      try {
-        await deps.writeFile(VALUES_INPUT, yamlString)
-      } catch (error) {
-        console.error('Error writing age keys to VALUES_INPUT file:', error)
-      }
-    }
-    // const { SOPS_AGE_KEY } = process.env
-    // let { publicKey, privateKey } = settingsVals?.kms?.sops?.age ?? {}
-    // d.log('publicKey:', publicKey)
-    // d.log('privateKey:', privateKey)
-    // const secrets = (await deps.loadYaml(`${envDir}/env/secrets.settings.yaml`)) as Record<string, any>
-    // d.log('secrets', secrets)
-    // if (SOPS_AGE_KEY) {
-    //   obj.keys = publicKey
-    //   d.log('Skipping age key generation, using existing key')
-    //   return
-    // }
-    // if (!publicKey || !privateKey) {
-    //   d.log('Generating age key pair')
-    //   const { stdout } = await generateAgeKey()
-    //   const matchPublic = stdout?.match(/age[0-9a-z]+/)
-    //   publicKey = matchPublic ? matchPublic[0] : ''
-    //   const matchPrivate = stdout?.match(/AGE-SECRET-KEY-[0-9A-Z]+/)
-    //   privateKey = matchPrivate ? matchPrivate[0] : ''
-
-    //   const ageKeys = { kms: { sops: { age: { publicKey, privateKey } } } }
-    //   await writeValues(ageKeys)
-    // }
-    if (!privateKey) {
-      d.log('No private key found for age encryption, using from env', process.env.SOPS_AGE_KEY)
-    } else {
-      await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
-      process.env.SOPS_AGE_KEY = privateKey
-    }
+    const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
+    console.log('publicKey', publicKey)
+    const secretsSettingsFile = `${envDir}/env/secrets.settings.yaml`
+    const secretsSettingsVals = (await deps.loadYaml(secretsSettingsFile)) as Record<string, any>
+    const { privateKey } = secretsSettingsVals?.kms?.sops?.age ?? {}
+    console.log('privateKey', privateKey)
+    await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+    process.env.SOPS_AGE_KEY = privateKey
     obj.keys = publicKey
     d.log('env 2:', process.env)
   }
@@ -214,6 +176,18 @@ export const getStoredClusterSecrets = async (
   return undefined
 }
 
+const getKmsValues = async (originalValues: any) => {
+  const { kms } = originalValues
+  if (!kms) return {}
+  const { provider } = kms.sops
+  if (!provider) return {}
+  if (provider !== 'age') return kms
+  const { age } = kms.sops
+  if (age?.publicKey && age?.privateKey) return kms
+  const ageKeys = await generateAgeKey()
+  return { kms: { sops: { age: ageKeys } } }
+}
+
 export const copyBasicFiles = async (
   deps = { copy, copyFile, copySchema, mkdir, pathExists, terminal },
 ): Promise<void> => {
@@ -264,6 +238,7 @@ export const processValues = async (
     loadYaml,
     decrypt,
     getStoredClusterSecrets,
+    getKmsValues,
     writeValues,
     pathExists,
     hfValues,
@@ -277,11 +252,13 @@ export const processValues = async (
   const { ENV_DIR, VALUES_INPUT } = env
   let originalInput: Record<string, any> | undefined
   let storedSecrets: Record<string, any> | undefined
+  let kmsValues: Record<string, any> | undefined
   if (deps.isChart) {
     d.log(`Loading app values from ${VALUES_INPUT}`)
     const originalValues = (await deps.loadYaml(VALUES_INPUT)) as Record<string, any>
     storedSecrets = (await deps.getStoredClusterSecrets()) || {}
-    originalInput = merge(cloneDeep(storedSecrets || {}), cloneDeep(originalValues))
+    kmsValues = await deps.getKmsValues(originalValues)
+    originalInput = merge(cloneDeep(storedSecrets || {}), cloneDeep(originalValues), cloneDeep(kmsValues))
     await deps.writeValues(originalInput)
   } else {
     d.log(`Loading repo values from ${ENV_DIR}`)
