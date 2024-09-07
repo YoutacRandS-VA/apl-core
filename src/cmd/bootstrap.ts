@@ -238,7 +238,6 @@ export const processValues = async (
     loadYaml,
     decrypt,
     getStoredClusterSecrets,
-    getKmsValues,
     writeValues,
     pathExists,
     hfValues,
@@ -257,7 +256,7 @@ export const processValues = async (
     d.log(`Loading app values from ${VALUES_INPUT}`)
     const originalValues = (await deps.loadYaml(VALUES_INPUT)) as Record<string, any>
     storedSecrets = (await deps.getStoredClusterSecrets()) || {}
-    kmsValues = await deps.getKmsValues(originalValues)
+    kmsValues = await getKmsValues(originalValues)
     originalInput = merge(cloneDeep(storedSecrets || {}), cloneDeep(originalValues), cloneDeep(kmsValues))
     await deps.writeValues(originalInput)
   } else {
