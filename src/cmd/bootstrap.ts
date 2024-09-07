@@ -177,12 +177,12 @@ export const getStoredClusterSecrets = async (
 }
 
 const getKmsValues = async (originalValues: any) => {
-  const { kms } = originalValues
+  const kms = originalValues?.kms
   if (!kms) return {}
-  const { provider } = kms.sops
+  const provider = kms?.sops?.provider
   if (!provider) return {}
   if (provider !== 'age') return kms
-  const { age } = kms.sops
+  const age = kms?.sops?.age
   if (age?.publicKey && age?.privateKey) return kms
   const ageKeys = await generateAgeKey()
   return { kms: { sops: { age: ageKeys } } }
