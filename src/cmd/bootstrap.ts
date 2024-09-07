@@ -1,5 +1,6 @@
 import { copy, pathExists } from 'fs-extra'
 import { copyFile, mkdir, readFile, writeFile } from 'fs/promises'
+import yaml from 'js-yaml'
 import { cloneDeep, get, merge } from 'lodash'
 import { pki } from 'node-forge'
 import path from 'path'
@@ -26,6 +27,25 @@ const kmsMap = {
   azure: 'azure_keyvault',
   google: 'gcp_kms',
   age: 'age',
+}
+
+const generateAgeKey = async () => {
+  const d = terminal(`cmd:${cmdName}:generateAgeKey`)
+  try {
+    const result = await $`age-keygen`
+    d.log('result', JSON.stringify(result))
+    const { stdout } = result
+    const matchPublic = stdout?.match(/age[0-9a-z]+/)
+    const publicKey = matchPublic ? matchPublic[0] : ''
+    const matchPrivate = stdout?.match(/AGE-SECRET-KEY-[0-9A-Z]+/)
+    const privateKey = matchPrivate ? matchPrivate[0] : ''
+    const ageKeys = { publicKey, privateKey }
+    d.log('ageKeys:', ageKeys)
+    return ageKeys
+  } catch (error) {
+    d.error('Error generating age keys:', error)
+    throw error
+  }
 }
 
 export const bootstrapSops = async (
@@ -62,43 +82,56 @@ export const bootstrapSops = async (
     keys: kmsKeys,
   }
 
-  const generateAgeKey = async () => {
-    try {
-      const result = await $`age-keygen`
-      return result
-    } catch (error) {
-      d.error('Error generating age keys:', error)
-      throw error
-    }
-  }
-
   if (provider === 'age') {
-    const { SOPS_AGE_KEY } = process.env
+    d.log('env 1:', env)
+    const { VALUES_INPUT } = env
     let { publicKey, privateKey } = settingsVals?.kms?.sops?.age ?? {}
-    d.log('publicKey:', publicKey)
-    d.log('privateKey:', privateKey)
-    const secrets = (await deps.loadYaml(`${envDir}/env/secrets.settings.yaml`)) as Record<string, any>
-    d.log('secrets', secrets)
-    if (SOPS_AGE_KEY) {
-      obj.keys = publicKey
-      d.log('Skipping age key generation, using existing key')
-      return
+    const originalValues = (await deps.loadYaml(VALUES_INPUT)) as Record<string, any>
+    if (
+      originalValues?.kms?.sops?.provider === 'age' &&
+      (!originalValues?.kms?.sops?.age?.publicKey || !originalValues?.kms?.sops?.age?.privateKey)
+    ) {
+      const ageKeys = await generateAgeKey()
+      publicKey = ageKeys.publicKey
+      privateKey = ageKeys.privateKey
+      const updatedValues = { ...cloneDeep(originalValues), kms: { sops: { provider: 'age', age: ageKeys } } }
+      const yamlString = yaml.dump(updatedValues)
+      try {
+        await deps.writeFile(VALUES_INPUT, yamlString)
+      } catch (error) {
+        console.error('Error writing age keys to VALUES_INPUT file:', error)
+      }
     }
-    if (!publicKey || !privateKey) {
-      d.log('Generating age key pair')
-      const { stdout } = await generateAgeKey()
-      const matchPublic = stdout?.match(/age[0-9a-z]+/)
-      publicKey = matchPublic ? matchPublic[0] : ''
-      const matchPrivate = stdout?.match(/AGE-SECRET-KEY-[0-9A-Z]+/)
-      privateKey = matchPrivate ? matchPrivate[0] : ''
+    // const { SOPS_AGE_KEY } = process.env
+    // let { publicKey, privateKey } = settingsVals?.kms?.sops?.age ?? {}
+    // d.log('publicKey:', publicKey)
+    // d.log('privateKey:', privateKey)
+    // const secrets = (await deps.loadYaml(`${envDir}/env/secrets.settings.yaml`)) as Record<string, any>
+    // d.log('secrets', secrets)
+    // if (SOPS_AGE_KEY) {
+    //   obj.keys = publicKey
+    //   d.log('Skipping age key generation, using existing key')
+    //   return
+    // }
+    // if (!publicKey || !privateKey) {
+    //   d.log('Generating age key pair')
+    //   const { stdout } = await generateAgeKey()
+    //   const matchPublic = stdout?.match(/age[0-9a-z]+/)
+    //   publicKey = matchPublic ? matchPublic[0] : ''
+    //   const matchPrivate = stdout?.match(/AGE-SECRET-KEY-[0-9A-Z]+/)
+    //   privateKey = matchPrivate ? matchPrivate[0] : ''
 
-      const ageKeys = { kms: { sops: { age: { publicKey, privateKey } } } }
-      await writeValues(ageKeys)
+    //   const ageKeys = { kms: { sops: { age: { publicKey, privateKey } } } }
+    //   await writeValues(ageKeys)
+    // }
+    if (!privateKey) {
+      d.log('No private key found for age encryption, using from env', process.env.SOPS_AGE_KEY)
+    } else {
       await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+      process.env.SOPS_AGE_KEY = privateKey
     }
     obj.keys = publicKey
-    process.env.SOPS_AGE_KEY = privateKey
-    d.log('env:', process.env)
+    d.log('env 2:', process.env)
   }
 
   const exists = await deps.pathExists(targetPath)
