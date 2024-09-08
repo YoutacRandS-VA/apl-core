@@ -71,6 +71,7 @@ export const bootstrapSops = async (
     d.log('============================================================================================')
     const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
     let privateKey = ''
+    let firstPrivateKey = ''
     let prevPublicKey = ''
     const prevPrivateKey = process?.env?.SOPS_AGE_KEY
     try {
@@ -81,8 +82,10 @@ export const bootstrapSops = async (
         prevPublicKey = sopsYaml?.creation_rules[0]?.age
       } else if (await deps.pathExists(encryptedSettingsFile)) {
         const encryptedSettings = (await deps.loadYaml(encryptedSettingsFile)) as Record<string, any>
-        privateKey = encryptedSettings?.kms?.sops?.age?.privateKey
-        if (privateKey.startsWith('ENC')) privateKey = ''
+        const key = encryptedSettings?.kms?.sops?.age?.privateKey
+        if (!key.startsWith('ENC')) {
+          firstPrivateKey = key
+        }
       }
     } catch (error) {
       d.log('Error reading age keys:', error)
@@ -91,7 +94,8 @@ export const bootstrapSops = async (
     d.log('publicKey', publicKey)
     d.log('privateKey', privateKey)
     await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
-    process.env.SOPS_AGE_KEY = privateKey
+    await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+    process.env.SOPS_AGE_KEY = firstPrivateKey
     obj.keys = publicKey
     d.log('======PROCESS ENV===========================================================================')
     d.log(process.env)
@@ -114,7 +118,7 @@ export const bootstrapSops = async (
 
   if (exists && isReEncryptRequired) {
     d.info('Re-encrypting secrets with new age keys')
-    await deps.encrypt()
+    // await deps.encrypt()
   }
 
   // prepare some credential files the first time and crypt some
