@@ -5,7 +5,7 @@ import { chunk } from 'lodash'
 import { $, cd, ProcessOutput } from 'zx'
 import { terminal } from './debug'
 import { cleanEnv, cliEnvSpec, env, isCli } from './envalid'
-import { loadYaml, readdirRecurse, rootDir } from './utils'
+import { readdirRecurse, rootDir } from './utils'
 import { BasicArguments } from './yargs'
 
 export interface Arguments extends BasicArguments {
@@ -155,20 +155,20 @@ export const encrypt = async (path = env.ENV_DIR, ...files: string[]): Promise<v
     return
   }
   d.info('Starting encryption')
-  let isReEncryptRequired = false
-  const sopsYaml = (await loadYaml(`${path}/.sops.yaml`)) as Record<string, any>
-  const settingsFile = `${path}/env/settings.yaml`
-  const settingsVals = (await loadYaml(settingsFile)) as Record<string, any>
-  const provider: string | undefined = settingsVals?.kms?.sops?.provider
-  const secretsSettingsFile = `${path}/env/secrets.settings.yaml`
-  const encryptedSettings = (await loadYaml(secretsSettingsFile)) as Record<string, any>
-  if (provider === 'age' && sopsYaml?.creation_rules[0]?.age !== encryptedSettings?.sops?.age[0]?.recipient) {
-    const decryptedSettings = (await loadYaml(`${secretsSettingsFile}.dec`)) as Record<string, any>
-    const privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
-    process.env.SOPS_AGE_KEY = privateKey
-    await writeFile(`${path}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
-    isReEncryptRequired = true
-  }
+  const isReEncryptRequired = true
+  // const sopsYaml = (await loadYaml(`${path}/.sops.yaml`)) as Record<string, any>
+  // const settingsFile = `${path}/env/settings.yaml`
+  // const settingsVals = (await loadYaml(settingsFile)) as Record<string, any>
+  // const provider: string | undefined = settingsVals?.kms?.sops?.provider
+  // const secretsSettingsFile = `${path}/env/secrets.settings.yaml`
+  // const encryptedSettings = (await loadYaml(secretsSettingsFile)) as Record<string, any>
+  // if (provider === 'age' && sopsYaml?.creation_rules[0]?.age !== encryptedSettings?.kms?.sops?.age?.privateKey) {
+  //   const decryptedSettings = (await loadYaml(`${secretsSettingsFile}.dec`)) as Record<string, any>
+  //   const privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
+  //   process.env.SOPS_AGE_KEY = privateKey
+  //   await writeFile(`${path}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+  //   isReEncryptRequired = true
+  // }
 
   await runOnSecretFiles(
     path,

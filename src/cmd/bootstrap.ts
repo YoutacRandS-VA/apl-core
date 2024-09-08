@@ -65,35 +65,29 @@ export const bootstrapSops = async (
   }
 
   if (provider === 'age') {
-    d.log('======ENV===================================================================================')
-    d.log(env)
+    d.log('======PROCESS ENV INIT======================================================================')
+    d.log(process.env)
     d.log('============================================================================================')
     const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
-    try {
-      if (await deps.pathExists(encryptedSettingsFile)) {
-        const encryptedSettings = (await deps.loadYaml(encryptedSettingsFile)) as Record<string, any>
-        const privateKey = encryptedSettings?.kms?.sops?.age?.privateKey
-        if (!privateKey.startsWith('ENC')) {
-          process.env.SOPS_AGE_KEY = privateKey
-          d.log('publicKey', publicKey)
-          d.log('privateKey', privateKey)
-          await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
-          await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
-        }
-      }
-      if (await deps.pathExists(decryptedSettingsFile)) {
-        const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
-        const privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
-        d.log('publicKey', publicKey)
-        d.log('privateKey', privateKey)
-        await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
-        await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
-      }
-    } catch (error) {
-      d.log('Error reading age keys:', error)
+    let initPrivateKey = ''
+    const encryptedSettings = (await deps.loadYaml(encryptedSettingsFile)) as Record<string, any>
+    d.log('encryptedSettings', JSON.stringify(encryptedSettings))
+    if (!encryptedSettings?.kms?.sops?.age?.privateKey?.startsWith('ENC')) {
+      initPrivateKey = encryptedSettings.kms.sops.age.privateKey
+      process.env.SOPS_AGE_KEY = initPrivateKey
+      await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${initPrivateKey}`)
+      await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${initPrivateKey}`)
     }
+    const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
+    d.log('decryptedSettings', JSON.stringify(decryptedSettings))
+    const privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
+    await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
+    await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+    d.log('publicKey', publicKey)
+    d.log('privateKey', privateKey)
+    d.log('initPrivateKey', initPrivateKey)
     obj.keys = publicKey
-    d.log('======PROCESS ENV===========================================================================')
+    d.log('======PROCESS ENV END=======================================================================')
     d.log(process.env)
     d.log('============================================================================================')
   }
