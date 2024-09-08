@@ -183,10 +183,10 @@ export const getStoredClusterSecrets = async (
   return undefined
 }
 
-export const generateAgeKeys = async (deps = { $ }) => {
+export const generateAgeKeys = async () => {
   const d = terminal(`cmd:${cmdName}:generateAgeKeys`)
   try {
-    const result = await deps.$`age-keygen`
+    const result = await $`age-keygen`
     const { stdout } = result
     const matchPublic = stdout?.match(/age[0-9a-z]+/)
     const publicKey = matchPublic ? matchPublic[0] : ''
@@ -201,7 +201,7 @@ export const generateAgeKeys = async (deps = { $ }) => {
   }
 }
 
-export const getKmsValues = async (originalValues: any, deps = { generateAgeKeys }) => {
+export const getKmsValues = async (originalValues: any) => {
   const kms = originalValues?.kms
   if (!kms) return {}
   const provider = kms?.sops?.provider
@@ -209,7 +209,7 @@ export const getKmsValues = async (originalValues: any, deps = { generateAgeKeys
   if (provider !== 'age') return { kms }
   const age = kms?.sops?.age
   if (age?.publicKey && age?.privateKey) return { kms }
-  const ageKeys = await deps.generateAgeKeys()
+  const ageKeys = await generateAgeKeys()
   return { kms: { sops: { age: ageKeys } } }
 }
 
@@ -263,7 +263,6 @@ export const processValues = async (
     loadYaml,
     decrypt,
     getStoredClusterSecrets,
-    getKmsValues,
     writeValues,
     pathExists,
     hfValues,
@@ -282,7 +281,7 @@ export const processValues = async (
     d.log(`Loading app values from ${VALUES_INPUT}`)
     const originalValues = (await deps.loadYaml(VALUES_INPUT)) as Record<string, any>
     storedSecrets = (await deps.getStoredClusterSecrets()) || {}
-    kmsValues = await deps.getKmsValues(originalValues)
+    kmsValues = await getKmsValues(originalValues)
     originalInput = merge(cloneDeep(storedSecrets || {}), cloneDeep(originalValues), cloneDeep(kmsValues))
     await deps.writeValues(originalInput)
   } else {
