@@ -96,6 +96,12 @@ export const bootstrapSops = async (
     d.log('============================================================================================')
     const time = new Date()
     await deps.writeFile(`${env.ENV_DIR}/.time`, `TIME=${time}`)
+    const timeExists = await deps.pathExists(`${env.ENV_DIR}/.time`)
+    if (timeExists) {
+      d.log('Time file exists')
+      const timeFile = await deps.readFile(`${env.ENV_DIR}/.time`, 'utf8')
+      d.log('Time file content', JSON.stringify(timeFile))
+    }
   }
 
   const exists = await deps.pathExists(targetPath)
