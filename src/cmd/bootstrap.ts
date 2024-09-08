@@ -49,6 +49,7 @@ export const bootstrapSops = async (
   const settingsFile = `${envDir}/env/settings.yaml`
   const settingsVals = (await deps.loadYaml(settingsFile)) as Record<string, any>
   const encryptedSettingsFile = `${envDir}/env/secrets.settings.yaml`
+  const decryptedSettingsFile = `${envDir}/env/secrets.settings.yaml.dec`
   const provider: string | undefined = settingsVals?.kms?.sops?.provider
   if (!provider) {
     d.warn('No sops information given. Assuming no sops enc/decryption needed. Be careful!')
@@ -79,6 +80,14 @@ export const bootstrapSops = async (
           await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
           await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
         }
+      }
+      if (await deps.pathExists(decryptedSettingsFile)) {
+        const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
+        const privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
+        d.log('publicKey', publicKey)
+        d.log('privateKey', privateKey)
+        await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
+        await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
       }
     } catch (error) {
       d.log('Error reading age keys:', error)
