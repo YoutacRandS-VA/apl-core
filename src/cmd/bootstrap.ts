@@ -29,25 +29,6 @@ const kmsMap = {
   age: 'age',
 }
 
-const generateAgeKey = async () => {
-  const d = terminal(`cmd:${cmdName}:generateAgeKey`)
-  try {
-    const result = await $`age-keygen`
-    d.log('result', JSON.stringify(result))
-    const { stdout } = result
-    const matchPublic = stdout?.match(/age[0-9a-z]+/)
-    const publicKey = matchPublic ? matchPublic[0] : ''
-    const matchPrivate = stdout?.match(/AGE-SECRET-KEY-[0-9A-Z]+/)
-    const privateKey = matchPrivate ? matchPrivate[0] : ''
-    const ageKeys = { publicKey, privateKey }
-    d.log('ageKeys:', ageKeys)
-    return ageKeys
-  } catch (error) {
-    d.error('Error generating age keys:', error)
-    throw error
-  }
-}
-
 export const bootstrapSops = async (
   envDir = env.ENV_DIR,
   deps = {
@@ -67,6 +48,8 @@ export const bootstrapSops = async (
   const targetPath = `${envDir}/.sops.yaml`
   const settingsFile = `${envDir}/env/settings.yaml`
   const settingsVals = (await deps.loadYaml(settingsFile)) as Record<string, any>
+  const encryptedSettingsFile = `${envDir}/env/secrets.settings.yaml`
+  const decryptedSettingsFile = `${envDir}/env/secrets.settings.yaml.dec`
   const provider: string | undefined = settingsVals?.kms?.sops?.provider
   if (!provider) {
     d.warn('No sops information given. Assuming no sops enc/decryption needed. Be careful!')
@@ -76,24 +59,43 @@ export const bootstrapSops = async (
   const templatePath = `${rootDir}/tpl/.sops.yaml.gotmpl`
   const kmsProvider = kmsMap[provider] as string
   const kmsKeys = settingsVals.kms.sops[provider]?.keys as string
-
+  let isReEncryptRequired = false
   const obj = {
     provider: kmsProvider,
     keys: kmsKeys,
   }
 
   if (provider === 'age') {
-    d.log('env 1:', env)
+    d.log('======ENV===================================================================================')
+    d.log(env)
+    d.log('============================================================================================')
     const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
-    console.log('publicKey', publicKey)
-    const secretsSettingsFile = `${envDir}/env/secrets.settings.yaml`
-    const secretsSettingsVals = (await deps.loadYaml(secretsSettingsFile)) as Record<string, any>
-    const { privateKey } = secretsSettingsVals?.kms?.sops?.age ?? {}
-    console.log('privateKey', privateKey)
+    let privateKey = ''
+    let prevPublicKey = ''
+    const prevPrivateKey = process?.env?.SOPS_AGE_KEY
+    try {
+      if (await deps.pathExists(decryptedSettingsFile)) {
+        const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
+        privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
+        const sopsYaml = await deps.loadYaml(targetPath)
+        prevPublicKey = sopsYaml?.creation_rules[0]?.age
+      } else if (await deps.pathExists(encryptedSettingsFile)) {
+        const encryptedSettings = (await deps.loadYaml(encryptedSettingsFile)) as Record<string, any>
+        privateKey = encryptedSettings?.kms?.sops?.age?.privateKey
+        if (privateKey.startsWith('ENC')) privateKey = ''
+      }
+    } catch (error) {
+      d.log('Error reading age keys:', error)
+    }
+    if (prevPublicKey !== publicKey && prevPrivateKey !== privateKey) isReEncryptRequired = true
+    d.log('publicKey', publicKey)
+    d.log('privateKey', privateKey)
     await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
     process.env.SOPS_AGE_KEY = privateKey
     obj.keys = publicKey
-    d.log('env 2:', process.env)
+    d.log('======PROCESS ENV===========================================================================')
+    d.log(process.env)
+    d.log('============================================================================================')
   }
 
   const exists = await deps.pathExists(targetPath)
@@ -109,6 +111,11 @@ export const bootstrapSops = async (
   // add sops related files
   const file = '.gitattributes'
   await deps.copyFile(`${rootDir}/.values/${file}`, `${env.ENV_DIR}/${file}`)
+
+  if (exists && isReEncryptRequired) {
+    d.info('Re-encrypting secrets with new age keys')
+    await deps.encrypt()
+  }
 
   // prepare some credential files the first time and crypt some
   if (!exists) {
@@ -176,15 +183,33 @@ export const getStoredClusterSecrets = async (
   return undefined
 }
 
-const getKmsValues = async (originalValues: any) => {
+export const generateAgeKeys = async (deps = { $ }) => {
+  const d = terminal(`cmd:${cmdName}:generateAgeKeys`)
+  try {
+    const result = await deps.$`age-keygen`
+    const { stdout } = result
+    const matchPublic = stdout?.match(/age[0-9a-z]+/)
+    const publicKey = matchPublic ? matchPublic[0] : ''
+    const matchPrivate = stdout?.match(/AGE-SECRET-KEY-[0-9A-Z]+/)
+    const privateKey = matchPrivate ? matchPrivate[0] : ''
+    const ageKeys = { publicKey, privateKey }
+    d.log('ageKeys', ageKeys)
+    return ageKeys
+  } catch (error) {
+    d.log('Error generating age keys:', error)
+    throw error
+  }
+}
+
+export const getKmsValues = async (originalValues: any, deps = { generateAgeKeys }) => {
   const kms = originalValues?.kms
   if (!kms) return {}
   const provider = kms?.sops?.provider
   if (!provider) return {}
-  if (provider !== 'age') return kms
+  if (provider !== 'age') return { kms }
   const age = kms?.sops?.age
-  if (age?.publicKey && age?.privateKey) return kms
-  const ageKeys = await generateAgeKey()
+  if (age?.publicKey && age?.privateKey) return { kms }
+  const ageKeys = await deps.generateAgeKeys()
   return { kms: { sops: { age: ageKeys } } }
 }
 
@@ -238,6 +263,7 @@ export const processValues = async (
     loadYaml,
     decrypt,
     getStoredClusterSecrets,
+    getKmsValues,
     writeValues,
     pathExists,
     hfValues,
@@ -256,7 +282,7 @@ export const processValues = async (
     d.log(`Loading app values from ${VALUES_INPUT}`)
     const originalValues = (await deps.loadYaml(VALUES_INPUT)) as Record<string, any>
     storedSecrets = (await deps.getStoredClusterSecrets()) || {}
-    kmsValues = await getKmsValues(originalValues)
+    kmsValues = await deps.getKmsValues(originalValues)
     originalInput = merge(cloneDeep(storedSecrets || {}), cloneDeep(originalValues), cloneDeep(kmsValues))
     await deps.writeValues(originalInput)
   } else {
