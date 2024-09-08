@@ -70,6 +70,7 @@ export const bootstrapSops = async (
     d.log('============================================================================================')
     const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
     let initPrivateKey = ''
+    let privateKey = ''
     const encryptedSettings = (await deps.loadYaml(encryptedSettingsFile)) as Record<string, any>
     d.log('encryptedSettings', JSON.stringify(encryptedSettings))
     if (!encryptedSettings?.kms?.sops?.age?.privateKey?.startsWith('ENC')) {
@@ -78,11 +79,16 @@ export const bootstrapSops = async (
       await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${initPrivateKey}`)
       await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${initPrivateKey}`)
     }
-    const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
-    d.log('decryptedSettings', JSON.stringify(decryptedSettings))
-    const privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
-    await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
-    await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+    const exist = await deps.pathExists(decryptedSettingsFile)
+    if (exist) {
+      const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
+      d.log('decryptedSettings', JSON.stringify(decryptedSettings))
+      privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
+      if (privateKey) {
+        await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
+        await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+      }
+    }
     d.log('publicKey', publicKey)
     d.log('privateKey', privateKey)
     d.log('initPrivateKey', initPrivateKey)
