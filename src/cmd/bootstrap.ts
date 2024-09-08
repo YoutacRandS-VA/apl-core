@@ -72,7 +72,7 @@ export const bootstrapSops = async (
       const { privateKey } = decryptedSettings?.kms?.sops?.age ?? {}
       d.log('privateKey', privateKey)
       await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
-      const secrets = deps.readFile(`${env.ENV_DIR}/.secrets`)
+      const secrets = await deps.readFile(`${env.ENV_DIR}/.secrets`)
       d.log('secrets', secrets)
     }
     d.log('======PROCESS ENV END=======================================================================')
