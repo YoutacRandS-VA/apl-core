@@ -1,6 +1,5 @@
 import { copy, pathExists } from 'fs-extra'
 import { copyFile, mkdir, readFile, writeFile } from 'fs/promises'
-// import yaml from 'js-yaml'
 import { cloneDeep, get, merge } from 'lodash'
 import { pki } from 'node-forge'
 import path from 'path'
@@ -65,43 +64,11 @@ export const bootstrapSops = async (
   }
 
   if (provider === 'age') {
-    d.log('======PROCESS ENV INIT======================================================================')
-    d.log(process.env)
-    d.log('============================================================================================')
     const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
-    let initPrivateKey = ''
-    let privateKey = ''
-    const encryptedSettings = (await deps.loadYaml(encryptedSettingsFile)) as Record<string, any>
-    d.log('encryptedSettings', JSON.stringify(encryptedSettings))
-    if (!encryptedSettings?.kms?.sops?.age?.privateKey?.startsWith('ENC')) {
-      initPrivateKey = encryptedSettings.kms.sops.age.privateKey
-      process.env.SOPS_AGE_KEY = initPrivateKey
-      await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${initPrivateKey}`)
-      await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${initPrivateKey}`)
-    }
-    const exist = await deps.pathExists(decryptedSettingsFile)
-    if (exist) {
-      const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
-      d.log('decryptedSettings', JSON.stringify(decryptedSettings))
-      privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
-      await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
-      await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
-    }
-    d.log('publicKey', publicKey)
-    d.log('privateKey', privateKey)
-    d.log('initPrivateKey', initPrivateKey)
     obj.keys = publicKey
     d.log('======PROCESS ENV END=======================================================================')
     d.log(process.env)
     d.log('============================================================================================')
-    const time = new Date()
-    await deps.writeFile(`${env.ENV_DIR}/.time`, `TIME=${time}`)
-    const timeExists = await deps.pathExists(`${env.ENV_DIR}/.time`)
-    if (timeExists) {
-      d.log('Time file exists')
-      const timeFile = await deps.readFile(`${env.ENV_DIR}/.time`, 'utf8')
-      d.log('Time file content', JSON.stringify(timeFile))
-    }
   }
 
   const exists = await deps.pathExists(targetPath)
@@ -123,7 +90,6 @@ export const bootstrapSops = async (
     if (isCli || env.OTOMI_DEV) {
       // first time so we know we have values
       const secretsFile = `${env.ENV_DIR}/.secrets`
-      d.log(`Creating secrets file: ${secretsFile}`)
       if (provider === 'google') {
         // and we also assume the correct values are given by using '!' (we want to err when not set)
         const serviceKeyJson = JSON.parse(values.kms!.sops!.google!.accountJson as string)
