@@ -96,7 +96,6 @@ env:
   ENV_DIR: /tmp/otomi/values/main
   GIT_LOCAL_PATH: /tmp/otomi/values/main
   GOOGLE_APPLICATION_CREDENTIALS: '/tmp/key.json'
-  SOPS_AGE_KEY_FILE: /tmp/otomi/values/main/.secrets
 
 core: {}
 
@@ -120,6 +119,3 @@ tools:
     AZURE_TENANT_ID: ''
     AZURE_CLIENT_ID: ''
     AZURE_CLIENT_SECRET: ''
-
-  env:
-    SOPS_AGE_KEY_FILE: /tmp/otomi/values/main/.secrets

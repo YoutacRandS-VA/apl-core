@@ -66,6 +66,15 @@ export const bootstrapSops = async (
   if (provider === 'age') {
     const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
     obj.keys = publicKey
+    const exists = await deps.pathExists(decryptedSettingsFile)
+    if (exists) {
+      const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
+      const { privateKey } = decryptedSettings?.kms?.sops?.age ?? {}
+      d.log('privateKey', privateKey)
+      await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+      const secrets = deps.readFile(`${env.ENV_DIR}/.secrets`)
+      d.log('secrets', secrets)
+    }
     d.log('======PROCESS ENV END=======================================================================')
     d.log(process.env)
     d.log('============================================================================================')
@@ -107,8 +116,7 @@ export const bootstrapSops = async (
         await deps.writeFile(secretsFile, `AZURE_CLIENT_ID='${v.clientId}'\nAZURE_CLIENT_SECRET=${v.clientSecret}`)
       } else if (provider === 'age') {
         const { privateKey } = values.kms!.sops!.age!
-        process.env.SOPS_AGE_KEY = privateKey
-        await deps.writeFile(secretsFile, `SOPS_AGE_KEY=${privateKey}`)
+        d.log('age privateKey', privateKey)
       }
     }
     // now do a round of encryption and decryption to make sure we have all the files in place for later
