@@ -49,7 +49,6 @@ export const bootstrapSops = async (
   const settingsFile = `${envDir}/env/settings.yaml`
   const settingsVals = (await deps.loadYaml(settingsFile)) as Record<string, any>
   const encryptedSettingsFile = `${envDir}/env/secrets.settings.yaml`
-  const decryptedSettingsFile = `${envDir}/env/secrets.settings.yaml.dec`
   const provider: string | undefined = settingsVals?.kms?.sops?.provider
   if (!provider) {
     d.warn('No sops information given. Assuming no sops enc/decryption needed. Be careful!')
@@ -59,7 +58,6 @@ export const bootstrapSops = async (
   const templatePath = `${rootDir}/tpl/.sops.yaml.gotmpl`
   const kmsProvider = kmsMap[provider] as string
   const kmsKeys = settingsVals.kms.sops[provider]?.keys as string
-  let isReEncryptRequired = false
   const obj = {
     provider: kmsProvider,
     keys: kmsKeys,
@@ -70,32 +68,21 @@ export const bootstrapSops = async (
     d.log(env)
     d.log('============================================================================================')
     const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
-    let privateKey = ''
-    let firstPrivateKey = ''
-    let prevPublicKey = ''
-    const prevPrivateKey = process?.env?.SOPS_AGE_KEY
     try {
-      if (await deps.pathExists(decryptedSettingsFile)) {
-        const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
-        privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
-        const sopsYaml = await deps.loadYaml(targetPath)
-        prevPublicKey = sopsYaml?.creation_rules[0]?.age
-      } else if (await deps.pathExists(encryptedSettingsFile)) {
+      if (await deps.pathExists(encryptedSettingsFile)) {
         const encryptedSettings = (await deps.loadYaml(encryptedSettingsFile)) as Record<string, any>
-        const key = encryptedSettings?.kms?.sops?.age?.privateKey
-        if (!key.startsWith('ENC')) {
-          firstPrivateKey = key
+        const privateKey = encryptedSettings?.kms?.sops?.age?.privateKey
+        if (!privateKey.startsWith('ENC')) {
+          process.env.SOPS_AGE_KEY = privateKey
+          d.log('publicKey', publicKey)
+          d.log('privateKey', privateKey)
+          await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
+          await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
         }
       }
     } catch (error) {
       d.log('Error reading age keys:', error)
     }
-    if (prevPublicKey !== publicKey && prevPrivateKey !== privateKey) isReEncryptRequired = true
-    d.log('publicKey', publicKey)
-    d.log('privateKey', privateKey)
-    await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
-    await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
-    process.env.SOPS_AGE_KEY = firstPrivateKey
     obj.keys = publicKey
     d.log('======PROCESS ENV===========================================================================')
     d.log(process.env)
@@ -115,11 +102,6 @@ export const bootstrapSops = async (
   // add sops related files
   const file = '.gitattributes'
   await deps.copyFile(`${rootDir}/.values/${file}`, `${env.ENV_DIR}/${file}`)
-
-  if (exists && isReEncryptRequired) {
-    d.info('Re-encrypting secrets with new age keys')
-    // await deps.encrypt()
-  }
 
   // prepare some credential files the first time and crypt some
   if (!exists) {
