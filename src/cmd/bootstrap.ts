@@ -90,7 +90,7 @@ export const bootstrapSops = async (
     if (prevPublicKey !== publicKey && prevPrivateKey !== privateKey) isReEncryptRequired = true
     d.log('publicKey', publicKey)
     d.log('privateKey', privateKey)
-    await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
+    await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
     process.env.SOPS_AGE_KEY = privateKey
     obj.keys = publicKey
     d.log('======PROCESS ENV===========================================================================')
@@ -183,8 +183,8 @@ export const getStoredClusterSecrets = async (
   return undefined
 }
 
-export const generateAgeKeys = async (deps = { $, terminal }): Promise<Record<string, string>> => {
-  const d = deps.terminal(`cmd:${cmdName}:generateAgeKeys`)
+export const generateAgeKeys = async (deps = { $ }) => {
+  const d = terminal(`cmd:${cmdName}:generateAgeKeys`)
   try {
     const result = await deps.$`age-keygen`
     const { stdout } = result
@@ -201,12 +201,9 @@ export const generateAgeKeys = async (deps = { $, terminal }): Promise<Record<st
   }
 }
 
-export const getKmsValues = async (
-  originalValues: Record<string, any>,
-  deps = { generateAgeKeys },
-): Promise<Record<string, any> | undefined> => {
+export const getKmsValues = async (originalValues: any, deps = { generateAgeKeys }) => {
   const kms = originalValues?.kms
-  if (!kms) return undefined
+  if (!kms) return {}
   const provider = kms?.sops?.provider
   if (!provider) return {}
   if (provider !== 'age') return { kms }
