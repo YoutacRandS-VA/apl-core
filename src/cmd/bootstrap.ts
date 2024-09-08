@@ -69,7 +69,7 @@ export const bootstrapSops = async (
     d.log(process.env)
     d.log('============================================================================================')
     const { publicKey } = settingsVals?.kms?.sops?.age ?? {}
-    let initPrivateKey = ''
+    let initPrivateKey = process.env?.SOPS_AGE_KEY || ''
     let privateKey = ''
     const encryptedSettings = (await deps.loadYaml(encryptedSettingsFile)) as Record<string, any>
     d.log('encryptedSettings', JSON.stringify(encryptedSettings))
@@ -84,7 +84,8 @@ export const bootstrapSops = async (
       const decryptedSettings = (await deps.loadYaml(decryptedSettingsFile)) as Record<string, any>
       d.log('decryptedSettings', JSON.stringify(decryptedSettings))
       privateKey = decryptedSettings?.kms?.sops?.age?.privateKey
-      if (privateKey) {
+      if (privateKey && privateKey !== initPrivateKey) {
+        process.env.SOPS_AGE_KEY = privateKey
         await deps.writeFile(`${env.ENV_DIR}/.keys`, `SOPS_AGE_KEY=${privateKey}`)
         await deps.writeFile(`${env.ENV_DIR}/.secrets`, `SOPS_AGE_KEY=${privateKey}`)
       }
