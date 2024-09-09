@@ -48,7 +48,6 @@ env:
   {{- end }}
   EDITOR_INACTIVITY_TIMEOUT: {{ $o.editorInactivityTimeout }}
   DRONE_WEBHOOK_SECRET: {{ $d | get "sharedSecret" }}
-  SOPS_AGE_KEY_FILE: /tmp/otomi/values/main/.secrets
 
 core:
   k8s: {{- toYaml $v.k8s | nindent 4 }}
@@ -72,7 +71,6 @@ tools:
   env:
     DEBUG: '*'
     VERBOSITY: '1'
-    SOPS_AGE_KEY_FILE: /tmp/otomi/values/main/.secrets
 
 podSecurityContext:
   runAsUser: 999
