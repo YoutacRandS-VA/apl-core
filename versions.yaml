@@ -1,4 +1,4 @@
-api: main
-console: main
+api: fc-test-ingress
+console: fc-test-ingress
 tasks: main
 tools: 2.4.0
