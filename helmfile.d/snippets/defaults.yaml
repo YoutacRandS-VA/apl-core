@@ -114,6 +114,7 @@ environments:
             logLevel: info
           falco:
             enabled: false
+            driver: ebpf
             _rawValues:
               customRules:
                 otomi-rules.yaml: >-
@@ -766,7 +767,7 @@ environments:
                   memory: 64Mi
                 limits:
                   cpu: 200m
-                  memory: 256Mi
+                  memory: 1Gi
               metricsGenerator:
                 requests:
                   cpu: 50m
@@ -794,6 +795,10 @@ environments:
             autoscaling:
               ingester:
                 enabled: false
+                minReplicas: 1
+                maxReplicas: 3
+                targetCPUUtilizationPercentage: 80
+                targetMemoryUtilizationPercentage: 80
               querier:
                 enabled: false
                 minReplicas: 1
