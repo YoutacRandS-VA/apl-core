@@ -323,7 +323,13 @@ jobs:
             $kms"
 
           helm install $install_args
-
+      - name: Install LKE Firewall
+        run: |
+          helm repo add linode-cfw https://linode.github.io/cloud-firewall-controller
+          helm repo update linode-cfw
+          helm install cloud-firewall-crd linode-cfw/cloud-firewall-crd \
+          && kubectl wait --for condition=established --timeout=60s crd/cloudfirewalls.networking.linode.com \
+          && helm install cloud-firewall-ctrl linode-cfw/cloud-firewall-controller
       - name: Gather k8s events on failure
         if: failure()
         run: |
@@ -335,7 +341,7 @@ jobs:
       - name: Gather otomi logs on failure
         if: failure()
         run: |
-          kubectl logs jobs/otomi --tail 150
+          kubectl logs jobs/otomi-apl --tail 150
       - name: Gather otomi-e2e logs on failure
         if: failure()
         run: |
