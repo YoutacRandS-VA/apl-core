@@ -18,9 +18,6 @@ azure:
 dns:
     domainFilters:
         - otomi.cloud
-    provider:
-        linode:
-            apiToken: xvxvxvxvxvxvxvxvxvxvxvxvx
     zoneIdFilters: []
 e2e:
     enabled: false
@@ -45,15 +42,15 @@ obj:
     provider:
         linode:
             accessKeyId: someaccessKeyId
-            region: nl-ams-1
             buckets:
                 cnpg: my-clusterid-cnpg
+                gitea: my-clusterid-gitea
                 harbor: my-clusterid-harbor
                 loki: my-clusterid-loki
                 tempo: my-clusterid-tempo
-                velero: my-clusterid-velero
-                gitea: my-clusterid-gitea
                 thanos: my-clusterid-thanos
+                velero: my-clusterid-velero
+            region: nl-ams-1
         type: linode
 oidc:
     platformAdminGroupID: someAdminGroupID
@@ -74,6 +71,7 @@ otomi:
     nodeSelector:
         otomi: otomi-sys
     version: main
+    isPreInstalled: false
 platformBackups:
     database:
         gitea:
@@ -92,6 +90,7 @@ platformBackups:
         enabled: true
         retentionPolicy: 7d
         schedule: 0 0 0 * * *
+    persistentVolumes: {}
 smtp:
     auth_username: no-reply@doma.in
     from: no-reply@doma.in
@@ -124,4 +123,4 @@ status:
         deployingVersion: 0.21.0
         status: deployed
         version: 0.21.0
-version: 28
+version: 31
