@@ -1,5 +1,5 @@
 api: 3.0.0
-console: 3.0.0
+console: APL-258
 consoleLogin: v3.0.0
-tasks: 3.3.0
+tasks: apl-313-keycloak-operator-retry
 tools: 2.7.0
