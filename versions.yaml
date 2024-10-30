@@ -1,5 +1,5 @@
-api: v3.0.0
-console: v3.0.0
+api: main
+console: main
 consoleLogin: v3.0.0
 tasks: APL-314
 tools: 2.7.0
