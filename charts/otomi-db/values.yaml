@@ -2,6 +2,7 @@ name: database
 labels:
   prometheus: system
   helm.sh/resource-policy: keep
+  affinity.otomi.io: volumes
 instances: 2
 imageName: ghcr.io/cloudnative-pg/postgresql:15.3
 storage:
@@ -20,6 +21,17 @@ clusterAffinity:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
     podAntiAffinityType: preferred
+    additionalPodAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: affinity.otomi.io
+                  operator: In
+                  values:
+                    - volumes
+            topologyKey: kubernetes.io/hostname
+          weight: 100
 
 # Example for backups: 
 # clusterBackup:
