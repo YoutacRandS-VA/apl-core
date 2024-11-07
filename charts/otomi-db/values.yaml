@@ -23,15 +23,13 @@ clusterAffinity:
     podAntiAffinityType: preferred
     additionalPodAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
-        - podAffinityTerm:
-            labelSelector:
-              matchExpressions:
-                - key: affinity.otomi.io
-                  operator: In
-                  values:
-                    - volumes
-            topologyKey: kubernetes.io/hostname
-          weight: 100
+        - labelSelector:
+            matchExpressions:
+              - key: affinity.otomi.io
+                operator: In
+                values:
+                  - volumes
+          topologyKey: kubernetes.io/hostname
 
 # Example for backups: 
 # clusterBackup:
