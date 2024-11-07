@@ -21,13 +21,15 @@ clusterAffinity:
     topologyKey: kubernetes.io/hostname
     podAntiAffinityType: preferred
     additionalPodAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchExpressions:
-              - key: postgresql
-                operator: Exists
-                values: []
-          topologyKey: "kubernetes.io/hostname"
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: postgresql
+                  operator: exists
+                  values: []
+            topologyKey: kubernetes.io/hostname
+          weight: 100
 # Example for backups: 
 # clusterBackup:
 #   backup:
