@@ -21,7 +21,7 @@ clusterAffinity:
     topologyKey: kubernetes.io/hostname
     podAntiAffinityType: preferred
     additionalPodAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
+      requiredDuringSchedulingIgnoredDuringExecution:
         - labelSelector:
             matchExpressions:
               - key: postgresql
